@@ -389,3 +389,256 @@ private void bootstrap() {
         saveDepartments();
     }
 }
+private void run() {
+    printHeader();
+
+    boolean authenticated = false;
+    while (!authenticated) {
+        authenticated = loginFlow();
+    }
+
+    int choice;
+    do {
+        showMainMenu();
+        choice = readInt("Select an option: ");
+        switch (choice) {
+            case 1: employeeManagementMenu(); break;
+            case 2: departmentManagementMenu(); break;
+            case 3: attendanceMenu(); break;
+            case 4: leaveManagementMenu(); break;
+            case 5: performanceMenu(); break;
+            case 6: payrollMenu(); break;
+            case 7: reportsMenu(); break;
+            case 8: userManagementMenu(); break;
+            case 9: backupExportMenu(); break;
+            case 0:
+                System.out.println("Exiting application. Persisting all changes.");
+                persistAll();
+                break;
+            default:
+                
+                break;
+        }
+    } while (choice != 0);
+    System.err.println("Goodbye");
+}
+private void printHeader() {
+    System.out.println("====");
+    System.out.println("Enterprise");
+    System.out.println("Employee Management System");
+    System.out.println("============");
+}
+private boolean loginFlow() {
+
+    System.out.println("Login: ");
+    String uname = readString("Username: ");
+    String pwd = readString("Password: ");
+
+    User u = users.get(uname);
+
+    if (u != null && u.getPassword().equals(pwd)) {
+        currentUser = u;
+        System.out.printf("Authentication successful. Role: %s\n", u.getRole());
+        return true;
+    } else {
+        System.out.println("Invalid credentials. Please try again.");
+        return false;
+    }
+
+}
+private void showMainMenu() {
+
+    System.out.println("\n--- Main Menu ---");
+    System.out.println("1. Employee Management");
+    System.out.println("2. Department Management");
+    System.out.println("3. Attendance");
+    System.out.println("4. Leave Management");
+    System.out.println("5. Performance Management");
+    System.out.println("6. Payroll");
+    System.out.println("7. Reports");
+    System.out.println("8. User Management (Admin only)");
+    System.out.println("9. Backup / Export");
+    System.out.println("0. Exit");
+
+}
+private void employeeManagementMenu() {
+
+    System.out.println("\n--- Employee Management ---");
+    System.out.println("1. Add Employee");
+    System.out.println("2. View All Employees");
+    System.out.println("3. Search Employee (ID)");
+    System.out.println("4. Search Employee (Name)");
+    System.out.println("5. Update Employee");
+    System.out.println("6. Delete Employee");
+    System.out.println("7. Assign Employee to Department");
+    System.out.println("8. Sort employees by (1) Name (2) Salary (3) Rating");
+    System.out.println("9. Import employees from CSV file");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: if (authorize("ADMIN", "HR")) addEmployee(); else unauthorized(); break;
+        case 2: viewAllEmployees(); break;
+        case 3: searchEmployeeById(); break;
+        case 4: searchEmployeeByName(); break;
+        case 5: if (authorize("ADMIN", "HR")) updateEmployee(); else unauthorized(); break;
+        case 6: if (authorize("ADMIN")) deleteEmployee(); else unauthorized(); break;
+        case 7: if (authorize("ADMIN", "HR")) assignDepartment(); else unauthorized(); break;
+        case 8: sortEmployeesMenu(); break;
+        case 9: if (authorize("ADMIN")) importEmployeesFromCSV(); else unauthorized(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+
+}
+private void departmentManagementMenu() {
+
+    System.out.println("\n--- Department Management ---");
+    System.out.println("1. Add Department");
+    System.out.println("2. View Departments");
+    System.out.println("3. Update Department Manager");
+    System.out.println("4. Delete Department");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: if (authorize("ADMIN")) addDepartment(); else unauthorized(); break;
+        case 2: viewDepartments(); break;
+        case 3: if (authorize("ADMIN")) updateDepartmentManager(); else unauthorized(); break;
+        case 4: if (authorize("ADMIN")) deleteDepartment(); else unauthorized(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+
+}
+private void attendanceMenu() {
+
+    System.out.println("\n--- Attendance");
+    System.out.println("1. Mark Attendance (Today)");
+    System.out.println("2. View Attendance for Employee");
+    System.out.println("3. Generate Attendance Report (by date range)");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: if (authorize("ADMIN", "HR")) markAttendanceToday(); else unauthorized(); break;
+        case 2: viewAttendanceForEmployee(); break;
+        case 3: generateAttendanceReport(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+
+}
+private void leaveManagementMenu() {
+
+    System.out.println("\n--- Leave Management ---");
+    System.out.println("1. Apply Leave (Employee)");
+    System.out.println("2. View Leave Requests");
+    System.out.println("3. Approve/Reject Leave (Admin/HR)");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: applyLeave(); break;
+        case 2: viewLeaveRequests(); break;
+        case 3: if (authorize("ADMIN", "HR")) processLeaveRequests(); else unauthorized(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+
+}
+private void performanceMenu() {
+
+    System.out.println("\n--- Performance---");
+    System.out.println("1. Add Performance Rating");
+    System.out.println("2. View Performance for Employee");
+    System.out.println("3. List top performers");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: if (authorize("ADMIN", "HR")) addPerformance(); else unauthorized(); break;
+        case 2: viewPerformanceForEmployee(); break;
+        case 3: listTopPerformers(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+
+}
+private void payrollMenu() {
+
+    System.out.println("\n--- Payroll ---");
+    System.out.println("1. Generate Salary Slip (Employee ID)");
+    System.out.println("2. View Payroll Records");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: if (authorize("ADMIN")) generateSalarySlip(); else unauthorized(); break;
+        case 2: viewPayrollRecords(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+
+}
+private void reportsMenu() {
+
+    System.out.println("\n--- Reports ---");
+    System.out.println("1. Attendance Percentage Report (by dept or all)");
+    System.out.println("2. Department Summary (count, avg salary)");
+    System.out.println("3. Top Earners");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: attendancePercentageReport(); break;
+        case 2: departmentSummaryReport(); break; // kept name idea but fixed space for compilation
+        case 3: topEarnersReport(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+
+}
+private void userManagementMenu() {
+
+    if (!authorize("ADMIN")) { unauthorized(); return; }
+
+    System.out.println("\n--- User Management (Admin)");
+    System.out.println("1. Create User");
+    System.out.println("2. Delete User");
+    System.out.println("3. List Users");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: createUser(); break;
+        case 2: deleteUser(); break;
+        case 3: listUsers(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+}
+private void backupExportMenu() {
+
+    System.out.println("\n--- Backup / Export ---");
+    System.out.println("1. Export all data to timestamped backup file");
+    System.out.println("2. Export employees only");
+    System.out.println("0. Back");
+
+    int c = readInt("Choose: ");
+
+    switch (c) {
+        case 1: exportAll(); break;
+        case 2: exportEmployeesOnly(); break;
+        case 0: return;
+        default: System.out.println("Invalid option."); break;
+    }
+}
