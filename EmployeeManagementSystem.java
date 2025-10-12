@@ -642,3 +642,225 @@ private void backupExportMenu() {
         default: System.out.println("Invalid option."); break;
     }
 }
+private void addEmployee() {
+
+    System.out.println("Add Employee, please provide details.");
+
+    int id = readInt("ID (numeric): ");
+
+    if (employees.containsKey(id)) {
+        System.out.println("Employee with this ID already exists.");
+        return;
+    }
+
+    String name = readString("Name: ");
+    String designation = readString("Designation: ");
+    double salary = readDouble("Salary (Taka): ");
+    String dept = chooseDepartmentPrompt();
+    String email = readString("Email: ");
+    String phone = readString("Phone: ");
+
+    Employee e = new Employee 
+}
+private void viewAllEmployees() {
+
+    if (employees.isEmpty()) {
+        System.out.println("No employees available.");
+        return;
+    }
+
+    System.out.println("Employees:");
+
+    employees.values().stream()
+        .sorted(Comparator.comparing(Employee::getId))
+        .forEach(e -> System.out.println(e.display()));
+
+}
+
+private void searchEmployeeById() {
+
+    int id = readInt("Enter Employee ID: ");
+    Employee e = employees.get(id);
+
+    if (e == null)
+        System.out.println("Employee not found.");
+    else
+        System.out.println(e.display());
+
+}
+private void searchEmployeeByName() {
+
+    String name = readString("Enter name (partial allowed): ").toLowerCase();
+    List<Employee> found = new ArrayList<>();
+
+    for (Employee e : employees.values()) {
+        if (e.getName().toLowerCase().contains(name)) found.add(e);
+    }
+
+    if (found.isEmpty()) {
+        System.out.println("No matching employees.");
+    } else {
+        found.forEach(emp -> System.out.println(emp.display()));
+    }
+
+}
+
+private void updateEmployee() {
+
+    int id = readInt("Enter Employee ID to update: ");
+    E
+
+}
+System.out.println("Leave blank to keep existing value.");
+
+String name = readOptionalString(String.format("Name [%s]: ", e.getName()));
+String desig = readOptionalString(String.format("Designation [%s]: ", e.getDesignation()));
+String salaryStr = readOptionalString(String.format("Salary [%.2f]: ", e.getSalary()));
+String dept = chooseDepartmentPromptOptional(e.getDepartment());
+String email = readOptionalString(String.format("Email [%s]: ", e.getEmail()));
+String phone = readOptionalString(String.format("Phone [%s]: ", e.getPhone()));
+
+if (!name.isEmpty()) e.setName(name);
+if (!desig.isEmpty()) e.setDesignation(desig);
+
+if (!salaryStr.isEmpty()) {
+    try {
+        e.setSalary(Double.parseDouble(salaryStr));
+    } catch (NumberFormatException ex) {
+        System.out.println("Invalid salary, keeping previous.");
+    }
+}
+
+if (!dept.isEmpty()) e.setDepartment(dept);
+if (!email.isEmpty()) e.setEmail(email);
+if (!phone.isEmpty()) e.setPhone(phone);
+
+saveEmployees();
+System.out.println("Employee updated.");
+}
+private void deleteEmployee() {
+
+    int id = readInt("Enter Employee ID to delete: ");
+
+    if (!employees.containsKey(id)) {
+        System.out.println("Employee not found.");
+        return;
+    }
+
+    employees.remove(id);
+
+    
+    attendanceRecords.removeIf(ar -> ar.getEmpId() == id);
+    performanceRecords.removeIf(pr -> pr.getEmpId() == id);
+    payrollRecords.removeIf(pay -> pay != null && pay.toFileString().startsWith(id + ","));
+    leaveRequests.removeIf(lr -> lr.getEmpId() == id);
+
+    saveEmployees();
+    saveAttendance();
+    savePerformance();
+    savePayroll();
+    saveLeaves();
+
+    System.out.println("Employee and related records removed.");
+}
+private void assignDepartment() {
+
+    int id = readInt("Employee ID: ");
+
+    Employee e = employees.get(id);
+
+    if (e == null) {
+        System.out.println("Employee not found.");
+        return;
+    }
+
+    String dept = chooseDepartmentPrompt();
+
+    e.setDepartment(dept);
+
+    saveEmployees();
+
+    System.out.println("Department updated.");
+}
+private void sortEmployeesMenu() {
+
+    System.out.println("Sort by: 1. Name 2. Salary 3. Rating");
+
+    int c = readInt("Choose: ");
+
+    List<Employee> list = new ArrayList<>(employees.values());
+
+    switch (c) {
+
+        case 1:
+            list.sort(Comparator.comparing(Employee::getName, String.CASE_INSENSITIVE_ORDER));
+            list.forEach(e -> System.out.println(e.display()));
+            break;
+
+        case 2:
+            list.sort(Comparator.comparingDouble(Employee::getSalary).reversed());
+            list.forEach(e -> System.out.println(e.display()));
+            break;
+
+        case 3:
+            Map<Integer, Double> avgRating = new HashMap<>();
+            for (Performance p : performanceRecords) {
+                avgRating.putIfAbsent(p.getEmpId(), 0.0);
+                avgRating.put(p.getEmpId(), avgRating.get(p.getEmpId()) + p.getRating());
+            }
+
+            Map<Integer, Integer> count = new HashMap<>();
+            for (Performance p : performanceRecords) {
+                count.putIfAbsent(p.getEmpId(), 0);
+                count.put(p.getEmpId(), count.get(p.getEmpId()) + 1);
+            }
+
+            list.sort((a, b) -> {
+                double avgA = 0.0;
+                double avgB = 0.0;
+                if (avgRating.containsKey(a.getId())) {
+                    avgA = avgRating.get(a.getId()) / count.get(a.getId());
+                }
+                if (avgRating.containsKey(b.getId())) {
+                    avgB = avgRating.get(b.getId()) / count.get(b.getId());
+                }
+                return Double.compare(avgB, avgA);
+            });
+
+            list.forEach(e -> System.out.println(e.display()));
+            break;
+    }
+}
+private void importEmployeesFromCSV() {
+
+    String path = readString("Enter CSV file path: ");
+    Path p = Paths.get(path);
+
+    if (!Files.exists(p)) {
+        System.out.println("File not found.");
+        return;
+    }
+
+    try (BufferedReader br = Files.newBufferedReader(p)) {
+        String line;
+        int added = 0;
+
+        while ((line = br.readLine()) != null) {
+
+            // expected: id, name, designation, salary, department, email, phone
+            Employee e = Employee.fromFileString(line);
+
+            if (e != null && !employees.containsKey(e.getId())) {
+                employees.put(e.getId(), e);
+                added++;
+            }
+        }
+
+        saveEmployees();
+        System.out.printf("Import complete. %d new employees added.\n", added);
+
+    } catch (IOException ex) {
+        System.out.println("Import failed: " + ex.getMessage());
+    }
+}
+
