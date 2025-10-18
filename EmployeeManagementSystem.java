@@ -863,4 +863,427 @@ private void importEmployeesFromCSV() {
         System.out.println("Import failed: " + ex.getMessage());
     }
 }
+// Service CRUD
 
+private void addDepartment() {
+
+    String name = readString("Department name: ");
+
+    if (departments.containsKey(name)) {
+        System.out.println("Department already exists.");
+        return;
+    }
+
+    String manager = readString("Manager name: ");
+
+    Department d = new Department(name, manager);
+    departments.put(name, d);
+
+    saveDepartments();
+
+    System.out.println("Department added.");
+}
+
+private void viewDepartments() {
+
+    if (departments.isEmpty()) {
+        System.out.println("No departments configured.");
+        return;
+    }
+
+    departments.values().forEach(d -> System.out.println("Department: " + d.getName() + " | Manager: " + d.getManager()));
+}
+private void updateDepartmentManager() {
+
+    String name = readString("Department name: ");
+    Department d = departments.get(name);
+
+    if (d == null) {
+        System.out.println("Department not found.");
+        return;
+    }
+
+    String newManager = readString("New Manager name: ");
+    d.setManager(newManager);
+
+    saveDepartments();
+    System.out.println("Department updated.");
+}
+
+private void deleteDepartment() {
+
+    String name = readString("Department name to delete: ");
+
+    if (!departments.containsKey(name)) {
+        System.out.println("Department not found.");
+        return;
+    }
+
+    // Reassign affected employees to the default 'General'
+    departments.remove(name);
+
+    for (Employee e : employees.values()) {
+        if (name.equals(e.getDepartment())) {
+            e.setDepartment("General");
+        }
+    }
+
+    saveDepartments();
+    saveEmployees();
+
+    System.out.println("Department deleted and employees reassigned to 'General'");
+}
+private String chooseDepartmentPrompt() {
+
+    System.out.println("Available departments:");
+    int i = 1;
+    List<String> deptNames = new ArrayList<>(departments.keySet());
+
+    for (String dn : deptNames) {
+        System.out.printf("%d. %s\n", i++, dn);
+    }
+
+    System.out.printf("%d. Create new department\n", i++);
+
+    int choice = readInt("Choose department number: ");
+
+    if (choice >= 1 && choice <= deptNames.size()) {
+        return deptNames.get(choice - 1);
+    }
+
+    if (choice == deptNames.size() + 1) {
+        String newDept = readString("New Department name: ");
+        String manager = readString("Manager name: ");
+        Department d = new Department(newDept, manager);
+        departments.put(newDept, d);
+        saveDepartments();
+        return newDept;
+    }
+
+    System.out.println("Invalid choice, defaulting to 'General'.");
+    return "General";
+}
+private String chooseDepartmentPromptOptional(String current) {
+
+    System.out.printf("Current department: %s\n", current);
+    System.out.println("Leave blank to keep. Otherwise choose department as below.");
+    System.out.println("Available departments:");
+
+    int i = 1;
+    List<String> deptNames = new ArrayList<>(departments.keySet());
+
+    for (String dn : deptNames) {
+        System.out.printf("%d. %s\n", i++, dn);
+    }
+
+    System.out.printf("%d. Create new department\n", i++);
+
+    String sel = readOptionalString("Enter number or blank: ");
+
+    if (sel.isEmpty()) return "";
+
+    try {
+        int choice = Integer.parseInt(sel);
+
+        if (choice >= 1 && choice <= deptNames.size()) {
+            return deptNames.get(choice - 1);
+        }
+
+        if (choice == deptNames.size() + 1) {
+            String newDept = readString("New Department name: ");
+            String manager = readString("Manager name: ");
+            Department d = new Department(newDept, manager);
+            departments.put(newDept, d);
+            saveDepartments();
+            return newDept;
+        }
+
+    } catch (NumberFormatException nfe) {
+        System.out.println("Invalid input. Keeping current.");
+    }
+
+    return "";
+}
+private void markAttendanceToday() {
+
+    LocalDate today = LocalDate.now();
+    System.out.println("Mark attendance for date: " + today);
+
+    for (Employee e : employees.values()) {
+
+        String in = readOptionalString(String.format(
+                "Employee %d %s (P/A, default P): ",
+                e.getId(), e.getName()
+        ));
+
+        boolean present = !("A".equalsIgnoreCase(in) || "absent".equalsIgnoreCase(in));
+
+        AttendanceRecord ar = new AttendanceRecord(e.getId(), today, present);
+        attendanceRecords.add(ar);
+    }
+
+    saveAttendance();
+    System.out.println("Attendance marked for today.");
+}
+private void viewAttendanceForEmployee() {
+
+    int id = readInt("Employee ID: ");
+    List<AttendanceRecord> recs = new ArrayList<>();
+
+    for (AttendanceRecord ar : attendanceRecords)
+        if (ar.getEmpId() == id) recs.add(ar);
+
+    if (recs.isEmpty()) {
+        System.out.println("No attendance records found.");
+    } else {
+        recs.sort(Comparator.comparing(AttendanceRecord::getDate));
+        for (AttendanceRecord r : recs) {
+            System.out.printf("%s - %s\n", r.getDate().toString(), r.isPresent() ? "Present" : "Absent");
+        }
+    }
+}
+private void generateAttendanceReport() {
+
+    String froms = readString("From date (yyyy-mm-dd): ");
+    String tos = readString("To date (yyyy-mm-dd): ");
+
+    LocalDate from = LocalDate.parse(froms);
+    LocalDate to = LocalDate.parse(tos);
+
+    Map<Integer, Integer> presents = new HashMap<>();
+    Map<Integer, Integer> totals = new HashMap<>();
+
+    for (AttendanceRecord ar : attendanceRecords) {
+
+        if (ar.getDate().isBefore(from) || ar.getDate().isAfter(to)) continue;
+
+        totals.putIfAbsent(ar.getEmpId(), 0);
+        totals.put(ar.getEmpId(), totals.get(ar.getEmpId()) + 1);
+
+        if (ar.isPresent()) {
+            presents.putIfAbsent(ar.getEmpId(), 0);
+            presents.put(ar.getEmpId(), presents.get(ar.getEmpId()) + 1);
+        }
+    }
+
+    System.out.println("Attendance Report:");
+
+    for (Employee e : employees.values()) {
+
+        int total = totals.getOrDefault(e.getId(), 0);
+        int pres = presents.getOrDefault(e.getId(), 0);
+        double pct = total == 0 ? 0.0 : (pres * 100.0 / total);
+
+        System.out.printf("Emp %d %s | Present: %d %d (%.2f%%)\n", e.getId(), e.getName(), pres, total, pct);
+    }
+}
+// Leave Management
+
+private void applyLeave() {
+
+    int empId = readInt("Your Employee ID: ");
+
+    if (!employees.containsKey(empId)) {
+        System.out.println("Employee not found.");
+        return;
+    }
+
+    String froms = readString("From date (yyyy-mm-dd): ");
+    String toS = readString("To date (yyyy-mm-dd): ");
+    String reason = readString("Reason: ");
+
+    LocalDate from = LocalDate.parse(froms);
+    LocalDate to = LocalDate.parse(toS);
+
+    int nextReqId = leaveRequests.stream().mapToInt(LeaveRequest::getRequestId).max().orElse(1000) + 1;
+    LeaveRequest lr = new LeaveRequest(nextReqId, empId, from, to, reason, "PENDING", null);
+    leaveRequests.add(lr);
+    saveLeaves();
+    System.out.println("Leave request submitted with ID: " + nextReqId);
+}
+private void viewLeaveRequests() {
+
+    if (leaveRequests.isEmpty()) {
+        System.out.println("No leave requests.");
+        return;
+    }
+
+    for (LeaveRequest lr : leaveRequests) {
+        System.out.printf(
+            "ReqID: %d | Emp: %d | %s to %s | Reason: %s | Status: %s | DecisionBy: %s\n",
+            lr.getRequestId(), lr.getEmpId(), lr.getFromDate(), lr.getToDate(), lr.getReason(), lr.getStatus(), lr.getDecisionBy()
+        );
+    }
+}
+private void processLeaveRequests() {
+
+    viewLeaveRequests();
+
+    int id = readInt("Enter Request ID to process: ");
+
+    Optional<LeaveRequest> maybe = leaveRequests.stream().filter(lr -> lr.getRequestId() == id).findFirst();
+
+    if (!maybe.isPresent()) {
+        System.out.println("Request not found.");
+        return;
+    }
+
+    LeaveRequest lr = maybe.get();
+
+    System.out.println("1. Approve 2. Reject 0. Cancel");
+    int choice = readInt("Choose: ");
+
+    if (choice == 1) {
+        lr.setStatus("APPROVED");
+        lr.setDecisionBy(currentUser.getUsername());
+        System.out.println("Leave approved.");
+    } else if (choice == 2) {
+        lr.setStatus("REJECTED");
+        lr.setDecisionBy(currentUser.getUsername());
+        System.out.println("Leave rejected.");
+    } else {
+        System.out.println("Cancelled.");
+        return;
+    }
+
+    saveLeaves();
+}
+//
+
+Performance
+
+private void addPerformance() {
+
+}
+
+int empId = readInt("Employee ID to rate: ");
+
+if (!employees.containsKey(empId)) {
+
+System.out.println("Employee not found.");
+
+return;
+
+}
+
+int rating readInt("Rating (1-5): ");
+
+if (rating < 1 || rating > 5) {
+
+System.out.println("Invalid rating.");
+
+return;
+
+}
+
+String notes readString("Notes: ");
+
+Performance p = new Performance(empId, LocalDate.now(), rating, notes);
+
+performanceRecords.add(p);
+
+savePerformance();
+
+System.out.println("Performance recorded.");
+}
+private void viewPerformanceForEmployee() {
+
+    int empId = readInt("Employee ID: ");
+
+    List<Performance> recs = new ArrayList<>();
+
+    for (Performance p : performanceRecords) 
+        if (p.getEmpId() == empId) recs.add(p);
+
+    if (recs.isEmpty()) 
+        System.out.println("No performance records.");
+    else {
+        recs.sort(Comparator.comparing(Performance::getDate));
+        for (Performance r : recs) {
+            System.out.printf("%s | Rating: %d | Notes: %s\n", r.getDate().toString(), r.getRating(), r.getNotes());
+        }
+    }
+}
+
+private void listTopPerformers() {
+
+    Map<Integer, List<Integer>> map = new HashMap<>();
+
+    for (Performance p : performanceRecords) {
+        map.putIfAbsent(p.getEmpId(), new ArrayList<>());
+        map.get(p.getEmpId()).add(p.getRating());
+    }
+
+    List<Map.Entry<Integer, Double>> avgList = new ArrayList<>();
+
+    for (Map.Entry<Integer, List<Integer>> e : map.entrySet()) {
+        double avg = e.getValue().stream().mapToInt(i -> i).average().orElse(0.0);
+        avgList.add(new AbstractMap.SimpleEntry<>(e.getKey(), avg));
+    }
+
+    avgList.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+
+    System.out.println("Top performers:");
+    int limit = Math.min(10, avgList.size());
+
+    for (int i = 0; i < limit; i++) {
+        int empId = avgList.get(i).getKey();
+        double avg = avgList.get(i).getValue();
+        Employee e = employees.get(empId);
+        if (e != null) System.out.printf("%d. %s | AvgRating: %.2f\n", i + 1, e.getName(), avg);
+    }
+}
+//Payroll
+
+private void generateSalarySlip() {
+
+    int empId = readInt("Employee ID: ");
+    Employee e = employees.get(empId);
+
+    if (e == null) {
+        System.out.println("Employee not found.");
+        return;
+    }
+
+    LocalDate date = LocalDate.now();
+
+    double basic = e.getSalary();
+
+    // Business logic for allowances and deductions (illustrative)
+    double hra = basic * 0.20; // housing allowance
+    double medical = 1500; // fixed
+    double conveyance = 800;
+    double allowances = hra + medical + conveyance;
+
+    // Deductions: tax and provident fund
+    double tax = computeTax(basic + allowances);
+    double pf = basic * 0.05;
+    double deductions = tax + pf;
+
+    double net = basic + allowances - deductions;
+
+    Payroll p = new Payroll(empId, date, basic, allowances, deductions, net);
+    payrollRecords.add(p);
+    savePayroll();
+}
+// Write salary slip file
+
+String slipFile = String.format("slip_%d_%s.txt", empId, date.toString());
+
+try (BufferedWriter bw = new BufferedWriter(new FileWriter(slipFile))) {
+
+    bw.write("Salary Slip\n");
+    bw.write("Date: " + date.toString() + "\n");
+    bw.write("Employee: " + e.getName() + " (ID: " + e.getId() + ")\n");
+    bw.write("Designation: " + e.getDesignation() + "\n");
+    bw.write(String.format("Basic: %.2f\n", basic));
+    bw.write(String.format("Allowances: %.2f\n", allowances));
+    bw.write(String.format("Deductions: %.2f\n", deductions));
+    bw.write(String.format("Net Salary: %.2f\n", net));
+
+    bw.flush();
+    System.out.println("Salary slip generated: " + slipFile);
+
+} catch (IOException ex) {
+    System.out.println("Failed to write salary slip: " + ex.getMessage());
+}
