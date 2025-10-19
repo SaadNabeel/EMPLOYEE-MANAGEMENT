@@ -1287,3 +1287,298 @@ try (BufferedWriter bw = new BufferedWriter(new FileWriter(slipFile))) {
 } catch (IOException ex) {
     System.out.println("Failed to write salary slip: " + ex.getMessage());
 }
+private double computeTax(double gross) {
+
+    // Simple progressive tax slab demo
+    if (gross <= 25000) return gross * 0.0;
+    if (gross <= 50000) return (gross - 25000) * 0.05;
+    if (gross <= 100000) return (gross - 50000) * 0.10 + 25000 * 0.05;
+    return (gross - 100000) * 0.15 + 50000 * 0.10 + 25000 * 0.05;
+
+}
+
+private void viewPayrollRecords() {
+
+    if (payrollRecords.isEmpty()) {
+        System.out.println("No payroll records.");
+        return;
+    }
+
+    for (Payroll p : payrollRecords) {
+        System.out.println(p.toFileString());
+    }
+
+}
+private void attendancePercentageReport() {
+
+    System.out.println("1. All employees 2. By Department");
+    int c = readInt("Choose: ");
+
+    if (c == 1) {
+        Map<Integer, Integer> total = new HashMap<>();
+        Map<Integer, Integer> pres = new HashMap<>();
+
+        for (AttendanceRecord ar : attendanceRecords) {
+            total.put(ar.getEmpId(), total.getOrDefault(ar.getEmpId(), 0) + 1);
+            if (ar.isPresent()) pres.put(ar.getEmpId(), pres.getOrDefault(ar.getEmpId(), 0) + 1);
+        }
+
+        System.out.println("Attendance %:");
+        for (Employee e : employees.values()) {
+            int tot = total.getOrDefault(e.getId(), 0);
+            int p = pres.getOrDefault(e.getId(), 0);
+            double pct = tot == 0 ? 0.0 : (p * 100.0 / tot);
+            System.out.printf("%s | %.2f%%\n", e.getName(), pct);
+        }
+
+    } else if (c == 2) {
+
+        viewDepartments();
+        String dept = readString("Department name: ");
+
+        Map<Integer, Integer> total = new HashMap<>();
+        Map<Integer, Integer> pres = new HashMap<>();
+
+        for (AttendanceRecord ar : attendanceRecords) {
+            total.put(ar.getEmpId(), total.getOrDefault(ar.getEmpId(), 0) + 1);
+            if (ar.isPresent()) pres.put(ar.getEmpId(), pres.getOrDefault(ar.getEmpId(), 0) + 1);
+        }
+
+        System.out.println("Attendance % for dept " + dept);
+    }
+}
+private void departmentSummaryReport() {
+
+    System.out.println("Department Summary");
+
+    for (Department d : departments.values()) {
+
+        long count = employees.values().stream().filter(e -> d.getName().equals(e.getDepartment()))
+                .count();
+
+        double avg = employees.values().stream().filter(e -> d.getName().equals(e.getDepartment()))
+                .mapToDouble(Employee::getSalary).average().orElse(0.0);
+
+        System.out.printf("Dept: %s | Count: %d | Avg Salary: %.2f\n", d.getName(), count, avg);
+    }
+}
+private void topEarnersReport() {
+
+    List<Employee> list = new ArrayList<>(employees.values());
+    list.sort(Comparator.comparingDouble(Employee::getSalary).reversed());
+
+    System.out.println("Top Earners:");
+    int limit = Math.min(10, list.size());
+
+    for (int i = 0; i < limit; i++) {
+        Employee e = list.get(i);
+        System.out.printf("%d. %s | %.2f | Dept: %s\n", i + 1, e.getName(), e.getSalary(), e.getDepartment());
+    }
+}
+
+// User Management
+
+private void createUser() {
+
+    String uname = readString("New username: ");
+    if (users.containsKey(uname)) { 
+        System.out.println("User exists."); 
+        return; 
+    }
+
+    String pwd = readString("Password: ");
+    String role = readString("Role (ADMIN/HR): ").toUpperCase();
+
+    if (!"ADMIN".equals(role) && !"HR".equals(role)) { 
+        System.out.println("Invalid role."); 
+        return; 
+    }
+
+    User u = new User(uname, pwd, role);
+    users.put(uname, u);
+    saveUsers();
+
+    System.out.println("User created.");
+}
+private void deleteUser() {
+
+    String uname = readString("Username to delete: ");
+    if (!users.containsKey(uname)) { 
+        System.out.println("User not found."); 
+        return; 
+    }
+
+    users.remove(uname);
+    saveUsers();
+    System.out.println("User removed.");
+}
+
+private void listUsers() {
+
+    System.out.println("Users:");
+    users.values().forEach(u -> System.out.println(u.getUsername() + " | Role: " + u.getRole()));
+}
+// Backup / Export
+
+private void exportAll() {
+
+    String ts = LocalDate.now().toString();
+    String out = "backup_all_" + ts + ".txt";
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(out))) {
+
+        bw.write("--- USERS ---\n");
+        for (User u : users.values()) bw.write(u.toFileString() + "\n");
+
+        bw.write("\n=== DEPARTMENTS ===\n");
+        for (Department d : departments.values()) bw.write(d.toFileString() + "\n");
+
+        bw.write("\n=== EMPLOYEES ===\n");
+        for (Employee e : employees.values()) bw.write(e.toFileString() + "\n");
+
+        bw.write("\n=== ATTENDANCE ===\n");
+        for (AttendanceRecord a : attendanceRecords) bw.write(a.toFileString() + "\n");
+
+        bw.write("\n=== LEAVES ===\n");
+        for (LeaveRequest l : leaveRequests) bw.write(l.toFileString() + "\n");
+
+        bw.write("\n=== PERFORMANCE ===\n");
+        for (Performance p : performanceRecords) bw.write(p.toFileString() + "\n");
+
+        bw.write("\n--- PAYROLL ---\n");
+        for (Payroll p : payrollRecords) bw.write(p.toFileString() + "\n");
+
+        System.out.println("Exported all data to " + out);
+
+    } catch (IOException ex) {
+        System.out.println("Export failed: " + ex.getMessage());
+    }
+}
+private void exportEmployeesOnly() {
+
+    String out = "employees_export_" + LocalDate.now().toString() + ".txt";
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(out))) {
+
+        for (Employee e : employees.values()) bw.write(e.toFileString() + "\n");
+
+        System.out.println("Employees exported to " + out);
+
+    } catch (IOException ex) {
+
+        System.out.println("Export failed: " + ex.getMessage());
+
+    }
+
+}
+
+// Persistence Helpers
+
+private void persistAll() {
+
+    saveUsers();
+    saveDepartments();
+    saveEmployees();
+    saveAttendance();
+    saveLeaves();
+    savePerformance();
+    savePayroll();
+
+}
+private void saveEmployees() {
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(EMP_FILE))) {
+
+        for (Employee e : employees.values()) bw.write(e.toFileString() + "\n");
+
+    } catch (IOException ex) {
+
+        System.out.println("Failed to save employees: " + ex.getMessage());
+
+    }
+
+}
+
+private void loadEmployees() {
+
+    employees.clear();
+
+    try (BufferedReader br = new BufferedReader(new FileReader(EMP_FILE))) {
+
+        String line;
+
+        while ((line = br.readLine()) != null) {
+
+            Employee e = Employee.fromFileString(line);
+            if (e != null) employees.put(e.getId(), e);
+
+        }
+
+    } catch (IOException ex) {
+
+        // missing file or empty start
+
+    }
+
+}
+private void saveUsers() {
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(USER_FILE))) {
+
+        for (User u : users.values()) bw.write(u.toFileString() + "\n");
+
+    } catch (IOException ex) {
+
+        System.out.println("Failed to save users: " + ex.getMessage());
+
+    }
+
+}
+
+private void loadUsers() {
+
+    users.clear();
+
+    try (BufferedReader br = new BufferedReader(new FileReader(USER_FILE))) {
+
+        String line;
+
+        while ((line = br.readLine()) != null) {
+
+            User u = User.fromFileString(line);
+            if (u != null) users.put(u.getUsername(), u);
+
+        }
+
+    } catch (IOException ex) {
+
+        // ignore
+
+    }
+
+}
+private void saveAttendance() {
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(ATT_FILE))) {
+        for (AttendanceRecord a : attendanceRecords) bw.write(a.toFileString() + "\n");
+    } catch (IOException ex) {
+        System.out.println("Failed to save attendance: " + ex.getMessage());
+    }
+
+}
+
+private void loadAttendance() {
+
+    attendanceRecords.clear();
+
+    try (BufferedReader br = new BufferedReader(new FileReader(ATT_FILE))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+            AttendanceRecord a = AttendanceRecord.fromFileString(line);
+            if (a != null) attendanceRecords.add(a);
+        }
+    } catch (IOException ex) {
+        // ignore
+    }
+
+}
