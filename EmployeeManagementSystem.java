@@ -1582,3 +1582,165 @@ private void loadAttendance() {
     }
 
 }
+private void saveLeaves() {
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(LEAVE_FILE))) {
+        for (LeaveRequest l : leaveRequests) bw.write(l.toFileString() + "\n");
+    } catch (IOException ex) {
+        System.out.println("Failed to save leaves: " + ex.getMessage());
+    }
+
+}
+
+private void loadLeaves() {
+
+    leaveRequests.clear();
+
+    try (BufferedReader br = new BufferedReader(new FileReader(LEAVE_FILE))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+            LeaveRequest l = LeaveRequest.fromFileString(line);
+            if (l != null) leaveRequests.add(l);
+        }
+    } catch (IOException ex) {
+        // ignore
+    }
+
+}
+private void savePerformance() {
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(PERF_FILE))) {
+        for (Performance p : performanceRecords) bw.write(p.toFileString() + "\n");
+    } catch (IOException ex) {
+        System.out.println("Failed to save performance: " + ex.getMessage());
+    }
+
+}
+private void loadPerformance() {
+
+    performanceRecords.clear();
+
+    try (BufferedReader br = new BufferedReader(new FileReader(PERF_FILE))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+            Performance p = Performance.fromFileString(line);
+            if (p != null) performanceRecords.add(p);
+        }
+    } catch (IOException ex) {
+        // ignore
+    }
+}
+
+private void savePayroll() {
+
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(PAY_FILE))) {
+        for (Payroll p : payrollRecords) bw.write(p.toFileString() + "\n");
+    } catch (IOException ex) {
+        System.out.println("Failed to save payroll: " + ex.getMessage());
+    }
+}
+private void loadPayroll() {
+
+    payrollRecords.clear();
+
+    try (BufferedReader br = new BufferedReader(new FileReader(PAY_FILE))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+            Payroll p = Payroll.fromFileString(line);
+            if (p != null) payrollRecords.add(p);
+        }
+    } catch (IOException ex) {
+        // ignore
+    }
+}
+private void ensureFilesExist() {
+
+}
+
+try {
+
+Files.createDirectories(Paths.get("."));
+
+Files.createFile(Paths.get(EMP_FILE)); // will throw if exists
+
+} catch (FileAlreadyExistsException fae) ​​{
+
+// ok
+
+} catch (IOException e) {
+
+// possibly cannot create; continue
+
+}
+
+// create other files if missing, but don't overwrite
+
+try { Files.createFile(Paths.get(USER_FILE)); } catch (FileAlreadyExistsException fae) ​​{}
+
+catch (IOException e) {}
+
+try { Files.createFile(Paths.get(DEPT_FILE)); } catch (FileAlreadyExistsException fae) ​​{}
+
+catch (IOException e) {}
+
+try { Files.createFile(Paths.get(ATT_FILE)); } catch (FileAlreadyExistsException fae) ​​{}
+
+catch (IOException e) {}
+
+try { Files.createFile(Paths.get(LEAVE_FILE)); } catch (FileAlreadyExistsException fae) ​​{}
+
+catch (IOException e) {}
+
+try { Files.createFile(Paths.get(PERF_FILE)); } catch (FileAlreadyExistsException fae) ​​{}
+
+catch (IOException e) {}
+
+try { Files.createFile(Paths.get(PAY_FILE)); } catch (FileAlreadyExistsException fae) ​​{}
+
+catch (IOException e) {}
+
+// Utilities
+
+private boolean authorize(String... allowedRoles) {
+    if (currentUser == null) return false;
+    for (String r : allowedRoles)
+        if (r.equalsIgnoreCase(currentUser.getRole())) return true;
+    return false;
+}
+
+private void unauthorized() {
+    System.out.println("Unauthorized: your role does not permit this action.");
+}
+
+private int readInt(String prompt) {
+    while (true) {
+        System.out.print(prompt);
+        String s = scanner.nextLine();
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (Exception e) {
+            System.out.println("Invalid integer. Try again.");
+        }
+    }
+}
+
+private double readDouble(String prompt) {
+    while (true) {
+        System.out.print(prompt);
+        String s = scanner.nextLine();
+        try {
+            return Double.parseDouble(s.trim());
+        } catch (Exception e) {
+            System.out.println("Invalid number. Try again.");
+        }
+    }
+}
+private String readString(String prompt) {
+    System.out.print(prompt);
+    return scanner.nextLine().trim();
+}
+
+private String readOptionalString(String prompt) {
+    System.out.print(prompt);
+    return scanner.nextLine().trim();
+}
